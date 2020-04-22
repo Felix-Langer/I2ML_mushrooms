@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # I2ML Projekt #################################################################
 # Thema: Mushroom Classification - Edible or Poisonous?
 ################################################################################
@@ -293,5 +292,3 @@ tab
 # not converge will cause the coefficients to be very large =>
 # the very large coefficients will cause "fitted probabilities numerically 0 or 1".
 # This is exactly the case: Our separation is ridiculously good, hence "no convergence"
-=======
->>>>>>> f6bdae5f05727f781702d1d2c49a223eec12b5fb
