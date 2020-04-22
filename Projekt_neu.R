@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # I2ML Projekt #################################################################
 # Thema: Mushroom Classification - Edible or Poisonous?
 ################################################################################
@@ -7,11 +8,11 @@ library(tidyverse)
 library(mlr3verse)
 library(ranger)
 
-path_project_directory = "~/Studium/Statistik/WiSe1920/Intro2ML/I2ML_mushrooms/" 
+# path_project_directory = "~/Studium/Statistik/WiSe1920/Intro2ML/I2ML_mushrooms/" 
 # path_project_directory = INSERTYOURPATHHERE
 # path_vicky = "C:/Users/vszab/Desktop/Uni/Statistik/Wahlpflicht/Machine Learning/Projekt/"
 
-setwd(path_project_directory)
+# setwd(path_project_directory)
 set.seed(123456)
 
 mushrooms_data = read.csv("Data/mushrooms.csv") %>% 
@@ -30,29 +31,27 @@ mushrooms_data_test = dplyr::anti_join(x = mushrooms_data,
                                        by = "ID")
 
 mushrooms_data_training = dplyr::select(mushrooms_data_training, -ID)
-mushrooms_data_ = dplyr::select(mushrooms_data_test, -ID)
+mushrooms_data_ = dplyr::select(mushrooms_data_test, -ID) # Wieso wurde der gemacht?
 
 # check domains of sampled variables
 # make sure that every category of every variable is at least once in the sample
 summary(mushrooms_data_training)
 
 # Construct Classification Task ------------------------------------------------
-task_shrooms = TaskClassif$new(id = "mushrooms_data_training",
+task_mushrooms = TaskClassif$new(id = "mushrooms_data_training",
                                backend = mushrooms_data_training,
                                target = "class",
                                positive = "e") # "e" = edible
 # Feature space:
-task_shrooms$feature_names
+task_mushrooms$feature_names
 # Target variable:
-autoplot(task_shrooms) + theme_bw()
+# autoplot(task_mushrooms) + theme_bw()
 
 # Resampling Strategies ----------------------------------------------------------
-# 10 fold cross validation for inner loop
-# resampling_inner_10CV = rsmp("cv", folds = 10L) # use this for final calculation
-resampling_inner_3CV = rsmp("cv", folds = 5L)
+# 5 fold cross validation for inner loop
+resampling_inner_5CV = rsmp("cv", folds = 5L)
 # 10 fold cross validation for outer loop
-# resampling_outer_10CV = rsmp("cv", folds = 10L) # use this for final calculation
-resampling_outer_3CV = rsmp("cv", folds = 10L)
+resampling_outer_10CV = rsmp("cv", folds = 10L)
 
 # Performance Measures ---------------------------------------------------------
 measures = list(
@@ -83,8 +82,8 @@ tuner_grid_search = tnr("grid_search")
 measures_tuning = msr("classif.auc")
 # Set the budget (when to terminate):
 # we test every candidate
-terminator_knn <- term("evals", n_evals = 100)
-terminator_mtry <- term("evals", n_evals = 21)
+terminator_knn = term("evals", n_evals = 50)
+terminator_mtry = term("evals", n_evals = 21)
 
 # Autotune knn -----------------------------------------------------------------
 # Define learner:
@@ -96,22 +95,22 @@ learner_knn$param_set
 # tune the chosen hyperparameters with these boundaries:
 param_k = ParamSet$new(
   list(
-    ParamInt$new("k", lower = 1L, upper = 100)
+    ParamInt$new("k", lower = 1L, upper = 50)
   )
 )
 
 # Set up autotuner instance with the predefined setups
 tuner_knn = AutoTuner$new(
   learner = learner_knn,
-  resampling = resampling_inner_3CV,
-  measures = measures_tuning, #autotoner nimmt trotzdem nur classif.ce her!?
+  resampling = resampling_inner_5CV,
+  measures = measures_tuning, 
   tune_ps = param_k, 
   terminator = terminator_knn,
   tuner = tuner_grid_search
 )
 
 # execute nested resampling
-# nested_resampling <- resample(task = task_shrooms,
+# nested_resampling <- resample(task = task_mushrooms,
 #                               learner = tuner_knn,
 #                               resampling = resampling_outer_3CV)
 # 
@@ -139,7 +138,7 @@ param_mtry = ParamSet$new(
 # Set up autotuner instance with the predefined setups
 tuner_ranger = AutoTuner$new(
   learner = learner_ranger,
-  resampling = resampling_inner_3CV,
+  resampling = resampling_inner_5CV,
   measures = measures_tuning, #autotoner nimmt trotzdem nur classif.ce her!?
   tune_ps = param_mtry, 
   terminator = terminator_mtry,
@@ -166,9 +165,9 @@ print(learners)
 # lgr::get_logger("mlr3")$set_threshold("warn")
 
 design = benchmark_grid(
-  tasks = task_shrooms,
+  tasks = task_mushrooms,
   learners = learners,
-  resamplings = resampling_outer_3CV
+  resamplings = resampling_outer_10CV
 )
 print(design)
 
@@ -184,6 +183,7 @@ autoplot(bmr)
 autoplot(bmr, type = "roc")
 
 (tab = bmr$aggregate(measures))
+bmr$score()
 
 # Ranked Performance------------------------------------------------------------
 ranks_performace = tab[, .(learner_id, rank_train = rank(-AUC), rank_test = rank(MMCE))] %>% 
@@ -217,7 +217,7 @@ for (i in 1:10){
 # (see splitrule) for survival.
 
 filter = flt("importance", learner = learner_ranger)
-filter$calculate(task_shrooms)
+filter$calculate(task_mushrooms)
 feature_scores <- as.data.table(filter)
 
 ggplot(data = feature_scores, aes(x = reorder(feature, -score), y = score)) +
@@ -229,23 +229,22 @@ ggplot(data = feature_scores, aes(x = reorder(feature, -score), y = score)) +
   scale_y_continuous(breaks = pretty(1:500, 10))
 
 
-# Choose the best model and fit to whole dataset ---------------------------------------------------
+# Choose the best model and fit on whole dataset ---------------------------------------------------
 tab
 # classif.ranger.tuned or log_reg
 
 # train tuner_ranger once again
 # eigentlich sollte man als Terminator eine bestimmte perfomance oder stagnation in perf wählen
 # da aber bei uns fast alle kombinationen 1 ergeben bei auc macht das wohl keinen Sinn
-terminator = term("evals", n_evals = 100)
 tuner_ranger = AutoTuner$new(
   learner = learner_ranger,
-  resampling = resampling_inner_3CV,
-  measures = measures, #autotoner nimmt trotzdem nur classif.ce her!?
+  resampling = resampling_inner_5CV,
+  measures = measures,
   tune_ps = param_mtry, 
-  terminator = terminator,
+  terminator = terminator_mtry,
   tuner = tuner_grid_search
 )
-tuner_ranger$train(task_shrooms)
+tuner_ranger$train(task_mushrooms)
 
 # parameter
 tuner_ranger$tuning_instance$archive(unnest = "params")[,c("mtry","AUC")]
@@ -255,7 +254,9 @@ tuner_ranger$tuning_result
 # use those parameters for model
 learner_final = lrn("classif.ranger",predict_type = "prob")
 learner_final$param_set$values = tuner_ranger$tuning_result$params
-learner_final$train(task_shrooms)
+# Train on whole train data
+learner_final$train(task_mushrooms)
+# Test on never touched test data (20% of whole data splitted at the beginning)
 pred = learner_final$predict_newdata(newdata = mushrooms_data_test)
 pred$score(measures)
 
@@ -275,7 +276,14 @@ plot_tree_1 <- rattle::fancyRpartPlot(mod_rpart_tree,
                                       palettes = c("Blues",# edible
                                                    "Reds"))# poisonous
 
-rpart::plotcp(mod_rpart_tree) # pruning unnecessary
+# rpart::plotcp(mod_rpart_tree) # pruning unnecessary
+
+# Test prediction accuracy
+t_pred = predict(mod_rpart_tree, mushrooms_data_test, type="class")
+(confMat <- table(mushrooms_data_test$class, t_pred))
+# sagt alle richtig voraus, aber könnte auch an den Daten liegen generalization error 
+# bei der benchmark berechnung ist nicht ganz so gut wie bei anderen Modellen
+tab
 
 # Closing remarks -------------------------------------------------------------
 ## Logistic Regression convergence error: --------------------------------------
@@ -285,3 +293,5 @@ rpart::plotcp(mod_rpart_tree) # pruning unnecessary
 # not converge will cause the coefficients to be very large =>
 # the very large coefficients will cause "fitted probabilities numerically 0 or 1".
 # This is exactly the case: Our separation is ridiculously good, hence "no convergence"
+=======
+>>>>>>> f6bdae5f05727f781702d1d2c49a223eec12b5fb
