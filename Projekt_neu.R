@@ -5,7 +5,9 @@
 # Preparation ------------------------------------------------------------------
 library(tidyverse)
 library(mlr3verse)
+
 library(ranger)
+library(precrec)
 
 # path_project_directory = "~/Studium/Statistik/WiSe1920/Intro2ML/I2ML_mushrooms/" 
 # path_project_directory = INSERTYOURPATHHERE
@@ -30,7 +32,7 @@ mushrooms_data_test = dplyr::anti_join(x = mushrooms_data,
                                        by = "ID")
 
 mushrooms_data_training = dplyr::select(mushrooms_data_training, -ID)
-mushrooms_data_ = dplyr::select(mushrooms_data_test, -ID) # Wieso wurde der gemacht?
+#mushrooms_data_ = dplyr::select(mushrooms_data_test, -ID) # Wieso wurde der gemacht?
 
 # check domains of sampled variables
 # make sure that every category of every variable is at least once in the sample
@@ -38,9 +40,9 @@ summary(mushrooms_data_training)
 
 # Construct Classification Task ------------------------------------------------
 task_mushrooms = TaskClassif$new(id = "mushrooms_data_training",
-                               backend = mushrooms_data_training,
-                               target = "class",
-                               positive = "e") # "e" = edible
+                                 backend = mushrooms_data_training,
+                                 target = "class",
+                                 positive = "e") # "e" = edible
 # Feature space:
 task_mushrooms$feature_names
 # Target variable:
@@ -207,7 +209,7 @@ for (i in 1:10){
   print(ranger[[i]]$tuning_result$params)
 }
 
-# Cariable Importance ---------------------------------------------------------
+# Variable Importance ---------------------------------------------------------
 # ranger
 # learner_ranger = learners[[5]]
 # Variable importance mode, one of 'none', 'impurity', 'impurity_corrected', 
@@ -233,8 +235,9 @@ tab
 # classif.ranger.tuned or log_reg
 
 # train tuner_ranger once again
-# eigentlich sollte man als Terminator eine bestimmte perfomance oder stagnation in perf wählen
-# da aber bei uns fast alle kombinationen 1 ergeben bei auc macht das wohl keinen Sinn
+# since almost all combinations lead to a perfect AUC of 1 we don't need a 
+# terminator criterion based on performance or performance stagnation
+
 tuner_ranger = AutoTuner$new(
   learner = learner_ranger,
   resampling = resampling_inner_5CV,
