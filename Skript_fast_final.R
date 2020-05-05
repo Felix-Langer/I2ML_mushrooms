@@ -28,7 +28,7 @@ ggplot2::theme_set(ggplot2::theme_bw())
 set.seed(123456)
 
 mushrooms_data = read.csv("Data/mushrooms.csv") %>% 
-  select(-veil.type)  # veil.type has only 1 level => omit variable
+  select( - veil.type)  # veil.type has only 1 level => omit variable
 
 str(mushrooms_data)
 
@@ -160,8 +160,8 @@ tuner_ranger = AutoTuner$new(
 # Set how to run the learners:
 (design = benchmark_grid(
   tasks = task_mushrooms,
-  learners = learners, # learner list with 2 custom defined learners
-  resamplings = resampling_outer_10CV)) # 10 fold crossvalidation on entire data set
+  learners = learners, # learner list incl. 2 custom defined learners
+  resamplings = resampling_outer_10CV)) # 10 fold crossvalidation for outer loops
 
 # Run the models (in 10 fold CV) -----------------------------------------------
 
@@ -194,39 +194,13 @@ learner_performance_ranked <- tab_learner_performance[,
 learner_performance_ranked
 # Logistic Regression and Random Forest clear winners
 
-# Predictions knn
-result_knn = tab_learner_performance$resample_result[[6]]
-as.data.table(result_knn$prediction())
-
-# Model Parameter
-knn = bmr$score()[learner_id == "classif.kknn.tuned"]$learner
-for (i in 1:10){
-  print(knn[[i]]$tuning_result$params)
-}
-
-ranger = bmr$score()[learner_id == "classif.ranger.tuned"]$learner
-for (i in 1:10){
-  print(ranger[[i]]$tuning_result$params)
-}
-
 # Refit Winner Model on Entire Data Set----------------------------------------
 learner_performance_ranked
 tab_learner_performance
 # Winner model choice: Random Forest since logistic regression is problematic
 # when perfect separation is present (as is the case here)
 
-# train tuner_ranger once again using the same specs as before
-rm(tuner_ranger)
-tuner_ranger = AutoTuner$new(
-  learner = learner_ranger,
-  resampling = resampling_inner_5CV,
-  measures = measures,
-  tune_ps = param_mtry, 
-  terminator = terminator_mtry, # pretty much all combinations yield perfect results
-  # so we stick to evaluating 21 features as opposed to take e.g. stagnation as
-  # termination criterion
-  tuner = tuner_grid_search_mtry
-)
+# Train tuner_ranger once again using the same specs as before
 tuner_ranger$tuning_instance
 
 # show only warnings:
@@ -244,17 +218,12 @@ tuner_ranger$tuning_instance$archive(unnest = "params")[,
 tuner_ranger$tuning_result # winning mtry is 3 although we could use
 # 2-21 and achieve the same perfect performance
 
-# use those parameters for model
+# use these parameters for our final winner model with winner specs:
 learner_final = lrn("classif.ranger",predict_type = "prob")
 learner_final$param_set$values = tuner_ranger$tuning_result$params
-learner_final$predict_type = "response"
 
 # Fit winner model to entire data set
 learner_final$train(task_mushrooms)
-
-# Confusion Matrix of winning model:
-table(learner_final$model$predictions, mushrooms_data$class)
-# -> Perfect separation
 
 # Variable Importance Random Forest---------------------------------------------
 # construct filter to extract variable importance in previously set up winning learner
@@ -272,30 +241,6 @@ ggplot(data = feature_scores,
   labs(x = "Features", y = "Variable Importance Score") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   scale_y_continuous(breaks = pretty(1:feature_scores$score[1],10))
-
-# Tree Plot ------------------------------------------------------------------
-# rpart CART implementation:
-# rerun the model directly since we cannot access the rpart model in benchmark()
-mod_rpart_tree <- rpart::rpart(class ~ ., 
-                               data = mushrooms_data)
-mod_rpart_tree
-# summary(mod_rpart_tree)
-mod_rpart_tree$splits
-mod_rpart_tree$variable.importance
-
-plot_tree <- rattle::fancyRpartPlot(mod_rpart_tree,
-                                    sub = "",
-                                    caption = "CART Train Set 1",
-                                    palettes = c("Blues",# edible
-                                                 "Reds"))# poisonous
-
-rpart::plotcp(mod_rpart_tree) # pruning unnecessary
-
-# Test prediction accuracy
-
-t_pred = predict(mod_rpart_tree, mushrooms_data, type="class")
-(confMat <- table(mushrooms_data$class, t_pred))
-
 
 # Reset ggplot theme -----------------------------------------------------------
 theme_set(original_ggplot_theme)
