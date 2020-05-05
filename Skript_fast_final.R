@@ -7,6 +7,7 @@ library(tidyverse) # for pipes and ggplot2
 library(mlr3verse)
 library(ranger) # random forests
 library(rattle) # for CART plotting
+library(precrec)
 
 # capture current ggplot theme and reset it at the end of the script:
 original_ggplot_theme <- ggplot2::theme_get()
@@ -70,8 +71,9 @@ measures = list(
 
 # Setting Parameter for Autotune -----------------------------------------------
 # Choose optimization algorithm:
-# no need for etra randomization, try to go every step
-tuner_grid_search = tnr("grid_search")
+# no need for extra randomization, we go every step
+tuner_grid_search_knn = tnr("grid_search", resolution = 50)
+tuner_grid_search_mtry = tnr("grid_search", resolution = 21)
 
 # evaluate performance on AUC:
 measures_tuning = msr("classif.auc")
@@ -103,7 +105,7 @@ tuner_knn = AutoTuner$new(
   measures = measures_tuning, 
   tune_ps = param_k, 
   terminator = terminator_knn,
-  tuner = tuner_grid_search
+  tuner = tuner_grid_search_knn
 )
 
 # execute nested resampling
@@ -143,7 +145,7 @@ tuner_ranger = AutoTuner$new(
   terminator = terminator_mtry,# pretty much all combinations yield perfect results
   # so we stick to evaluating 21 features as opposed to take e.g. stagnation as
   # termination criterion
-  tuner = tuner_grid_search
+  tuner = tuner_grid_search_mtry
 )
 
 # Learner List------------------------------------------------------------------
@@ -193,7 +195,7 @@ learner_performance_ranked
 # Logistic Regression and Random Forest clear winners
 
 # Predictions knn
-result_knn = tab$resample_result[[6]]
+result_knn = tab_learner_performance$resample_result[[6]]
 as.data.table(result_knn$prediction())
 
 # Model Parameter
@@ -220,36 +222,43 @@ tuner_ranger = AutoTuner$new(
   resampling = resampling_inner_5CV,
   measures = measures,
   tune_ps = param_mtry, 
-  terminator = term("none"), # pretty much all combinations yield perfect results
+  terminator = terminator_mtry, # pretty much all combinations yield perfect results
   # so we stick to evaluating 21 features as opposed to take e.g. stagnation as
   # termination criterion
-  tuner = tuner_grid_search
+  tuner = tuner_grid_search_mtry
 )
 tuner_ranger$tuning_instance
 
-print(terminator_mtry)
-
 # show only warnings:
-# lgr::get_logger("mlr3")$set_threshold("warn")
+lgr::get_logger("mlr3")$set_threshold("warn")
 tuner_ranger$train(task_mushrooms)
 # reset console outputs to default:
 lgr::get_logger("mlr3")$set_threshold("info")
 
-# parameter
-tuner_ranger$tuning_instance$archive(unnest = "params")[,c("mtry","AUC")]
+# AUC performance for parameter combinations:
+tuner_ranger$tuning_instance$archive(unnest = "params")[,
+                                                        c("mtry","AUC")] %>% 
+  arrange(mtry)
+# Pretty much every combination works perfectly
 
-tuner_ranger$tuning_result
+tuner_ranger$tuning_result # winning mtry is 3 although we could use
+# 2-21 and achieve the same perfect performance
 
 # use those parameters for model
 learner_final = lrn("classif.ranger",predict_type = "prob")
 learner_final$param_set$values = tuner_ranger$tuning_result$params
-# Train on whole train data
+learner_final$predict_type = "response"
+
+# Fit winner model to entire data set
 learner_final$train(task_mushrooms)
 
+# Confusion Matrix of winning model:
+table(learner_final$model$predictions, mushrooms_data$class)
+# -> Perfect separation
 
 # Variable Importance Random Forest---------------------------------------------
-# construct filter to extract variable importance in previously set up learner
-filter_ranger = flt("importance", learner = learner_ranger)
+# construct filter to extract variable importance in previously set up winning learner
+filter_ranger = flt("importance", learner = learner_final)
 # rerun learner on entire data set and store variable importance results
 filter_ranger$calculate(task_mushrooms)
 
@@ -274,24 +283,24 @@ mod_rpart_tree
 mod_rpart_tree$splits
 mod_rpart_tree$variable.importance
 
-plot_tree_1 <- rattle::fancyRpartPlot(mod_rpart_tree,
-                                      sub = "",
-                                      caption = "CART Train Set 1",
-                                      palettes = c("Blues",# edible
-                                                   "Reds"))# poisonous
+plot_tree <- rattle::fancyRpartPlot(mod_rpart_tree,
+                                    sub = "",
+                                    caption = "CART Train Set 1",
+                                    palettes = c("Blues",# edible
+                                                 "Reds"))# poisonous
 
 rpart::plotcp(mod_rpart_tree) # pruning unnecessary
 
 # Test prediction accuracy
-t_pred = predict(mod_rpart_tree, mushrooms_data_test, type="class")
-(confMat <- table(mushrooms_data_test$class, t_pred))
-# sagt alle richtig voraus, aber könnte auch an den Daten liegen generalization error 
-# bei der benchmark berechnung ist nicht ganz so gut wie bei anderen Modellen
-tab
+
+t_pred = predict(mod_rpart_tree, mushrooms_data, type="class")
+(confMat <- table(mushrooms_data$class, t_pred))
 
 
 # Reset ggplot theme -----------------------------------------------------------
 theme_set(original_ggplot_theme)
+
+
 # Closing remarks -------------------------------------------------------------
 ## Logistic Regression convergence error: --------------------------------------
 # Kudos: https://stats.stackexchange.com/questions/320661/unstable-logistic-regression-when-data-not-well-separated
