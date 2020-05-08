@@ -76,7 +76,7 @@ tuner_grid_search_knn = tnr("grid_search", resolution = 50)
 tuner_grid_search_mtry = tnr("grid_search", resolution = 21)
 
 # evaluate performance on AUC:
-measures_tuning = msr("classif.auc")
+measures_tuning = msr("classif.auc", id = "AUC")
 # Set the budget (=when to terminate):
 # we test every candidate
 terminator_knn = term("evals",
@@ -171,7 +171,7 @@ lgr::get_logger("mlr3")$set_threshold("warn")
 bmr = benchmark(design, store_models = TRUE)
 # reset console messages to default:
 lgr::get_logger("mlr3")$set_threshold("info")
-
+bmr <- read_rds("C:/Users/Cornelia/Documents/R/I2ML_mushrooms/bmr_dump.rds")
 print(bmr)
 
 # Compare Classification Errors among learners:
