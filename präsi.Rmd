@@ -1,7 +1,7 @@
 ---
-title: "Mushroom Classification"
+title: "Introduction to Mushroom Learning"
 author: "Andreas Klaß, Cornelia Gruber, Felix Langer, Viktoria Szabo"
-date: "10.05.2020"
+date: "15.05.2020"
 output:
   pdf_document: default
   html_document: default
@@ -17,14 +17,14 @@ knitr::include_graphics("images/mushrooms1.jpg")
 ```
 
 
-Collecting mushrooms recently gained popularity (if you believe Instagram influencers and mushroom picking blogs). Since mushrooms come in many different colors and shapes, their fit or unfit for human consumption is not necessarily obvious. Naturally, instead of asking your grandparents for advice a statistical analysis is the way to go to find out whether a mushroom is edible or poisonous given attributes concerning the look or smell of a mushroom.
+Collecting mushrooms recently gained popularity (which you can see on Instagram and mushroom picking blogs). Since mushrooms come in many different colors and shapes, their fit or unfit for human consumption is not necessarily obvious. Naturally, instead of asking your grandparents for advice a statistical analysis is the way to go to find out whether a mushroom is edible or poisonous given attributes concerning the look or smell of a mushroom.
 
 ### Mushroom attributes
-Our main goal is to classify each mushroom into one of the two classes "edible" or "poisonous". For this task we can use various attributes of a mushroom's cap, gill or stalk or attributes like the odor, population or habitat of the mushroom. The cap shape for example can be either "bell", "conical", "convex", "flat", "knobbed" or "sunken" (see figure below). The dataset contains 8124 observations with 22 nominal features.
+Our main goal is to classify each mushroom into one of the two classes "edible" or "poisonous" by using machine learning methods. For this task we can use various attributes of a mushroom's cap, gill or stalk or attributes like the odor, population or habitat of the mushroom. The cap shape for example can be either "bell", "conical", "convex", "flat", "knobbed" or "sunken" (see figure below). The dataset contains 8124 observations with 22 nominal features.
 
-```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="source: https://www.mushroomdiary.co.uk/mushroom-identification/",fig.show='hold',fig.align='center'}
+```{r, echo=FALSE,out.width="49%",fig.cap="source: https://www.mushroomdiary.co.uk/mushroom-identification/",fig.show='hold',fig.align='center'}
 
-knitr::include_graphics(c("images/parts-of-a-mushroom.gif","images/cap-shapes.gif"))
+knitr::include_graphics(c("images/parts.jpg","images/cap_shape.jpg"))
 
 ```
 
@@ -94,26 +94,29 @@ summary(mushrooms_data)
 ```
 
 In order to get a better feeling for our mushrooms let's do some plotting:   
-Odor seems to be quite good indicator whether a mushroom is poisonous or edible.   
+Odor seems to be quite good indicator whether a mushroom is poisonous or edible. For example, a purgant, spicy or fishy odor clearly identifies poisonous mushrooms.          
 ```{r, echo=FALSE}
 p1 <- ggplot(mushrooms, aes(x= odor, fill = class)) +
   geom_bar() +
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 45,  hjust = 1))+
-  ggtitle("Distribution of class labels - odor")
+  ggtitle("Distribution of class labels - odor")+
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"))
 
 p2 <- ggplot(mushrooms, aes(x = gill.color, fill = class)) +
   geom_bar()+
   theme(legend.position = "bottom", axis.text.x = element_text(angle = 45,  hjust = 1))+
-  ggtitle("Distribution of class labels - gill.color")
+  ggtitle("Distribution of class labels - gill.color")+
+  scale_fill_manual(values = c("#00BFC4", "#F8766D"))
 
-grid.arrange(p1, p2, ncol =2 )
+grid.arrange(p1, p2, ncol =2)
 
 ```
 
 ### Mushroom Learning
+The machine learning analysis focuses in particular on two aspects: Fist comparing different machine learning methods such as KNN or Random Forests on this specific data set and second including hyper parameter tuning for some of the used methods.     
 #### Evaluation Framework
 
-mlr3 is a machine learning (our in our case mushroom learning) framework offering a common ground for all necessary steps as defining a task, training a learner, predicting new data and resampling.    
+mlr3 is a machine learning (our in our case mushroom learning) framework in R offering a common ground for all necessary steps as defining a task, training a learner, predicting new data and resampling.    
 A task in mlr3 contains the data as well as meta information such as the name of the target variable or if its a "classification" "regression" task.
 ```{r}
 # Construct Classification Task 
@@ -124,7 +127,7 @@ task_mushrooms = TaskClassif$new(id = "mushrooms_data",
 ```
 
 
-Additionally to building a machine learning model for predicting the classes it is crucial to obtain an unbiased generalization error for our estimates. Therefore we decided for a nested resampling strategy with a 5-fold CV in inner loop and a 10-fold CV in the outer loop. The number of folds was chosen in a way to balance the bias and variance of our estimate while still considering run time.   
+Additionally to building a machine learning model for predicting the classes it is crucial to obtain a realistic generalization error for our estimates. Therefore we decided for a nested resampling strategy with a 5-fold CV in inner loop and a 10-fold CV in the outer loop. The number of folds was chosen in a way to balance the bias and variance of our estimate while still considering run time.   
 
 ```{r}
 # Resampling Strategies 
@@ -134,9 +137,9 @@ resampling_inner_5CV = rsmp("cv", folds = 5L)
 resampling_outer_10CV = rsmp("cv", folds = 10L)
 ```
 
-While model tuning will be solely based on the AUC, printing
-other measures is useful for assessing the performances for the more relevant error of falsely predicting a poisonous mushroom as edible.   
-Since the range of values of the hyperparameters is quite limited we chose grid search for optimizing.
+While model tuning will be based on the AUC in order to classify most observations correctly, printing other measures is useful for assessing the performances of other aspects such as falsely predicting a poisonous mushroom as edible.   
+For the second aspect of the project, hyperparameter tuning, we chose grid search because the range of possible hyperparameter values is discrete and rather small. More precisely, the hyperparameter mtry for random forest (number of variables randomly sampled as candidates at each split)  may be between 1 and 21 and k in KNN (number of neighbors considered) may be between 1 and 50.    
+
 ```{r}
 # Performance Measures 
 measures = list(
@@ -169,9 +172,9 @@ terminator_mtry = term("evals", n_evals = 21)
 
 #### Choosing algorithms
 A relevant property of our dataset is that all features are nominal and thus multinomial distributed. Therefore linear and quadratic discriminant analyses (LDA and QDA) are due to the violated assumption of normally distributed features not possible.    
-Following the performance of featureless, naive bayes, KNN, logistic regression, decision tree and random forest models will be compared.     
+Following the performance of featureless, naive bayes, KNN, logistic regression, decision tree and random forest models will be compared since they are all suitable for binary classification with nominal features.     
 
-In the following part we define our inner loop of nested resampling. Only random forest (mtry) and KNN (k) have hyperparameters which will be tuned in a 5-fold-cv.
+In the following part we define our inner loop of nested resampling for tuning hyperparameters. Only random forest (mtry) and KNN (k) have hyperparameters which will be tuned in a 5-fold-cv.
 
 ```{r}
 
@@ -230,9 +233,9 @@ tuner_ranger = AutoTuner$new(
 ```
 
 
-#### Results
-Here the outer loop of nested resampling is done with a 10-fold-cv. 
-```{r}
+#### Benchmark Results
+The final benchmark of all 6 methods, which is the outer loop of our nested resampling with a 10-fold-cv, is shown below. In this step the generalization error as well as other performance measures of the algorithms are compared.   
+```{r, results='hide'}
 design = benchmark_grid(
   tasks = task_mushrooms,
   learners = learners,
@@ -241,41 +244,32 @@ design = benchmark_grid(
 
 
 
-#lower the threshold to only print warnings:
-lgr::get_logger("mlr3")$set_threshold("warn")
-
 bmr = benchmark(design, store_models = TRUE)
-# reset to default:
-lgr::get_logger("mlr3")$set_threshold("info")
 
 ```
-First of all we see that no errors or warnings occurred during resampling when printing the benchmark result print(bmr).
+When nominal features are included in a logistic regression each category is binary encoded, however if in one category every single observation has the same target variable class (edible or poisonous) the model does not converge. This means that the estimated regression coefficient would need to be infinity, since the probability for an observation to belong to a specific class is exactly 1. As this is what happens for some categories such as "spicy odor" the model fit is not quite stable and interpreting the coefficients might be misleading.       
+
+Beyond this, we see that no errors or warnings occurred during resampling when printing the benchmark result print(bmr).
 
 ```{r}
 
 print(bmr)
 ```
 
-As expected a featureless model stays at a classification error of close to 0.5.
+
+In the following table you can see how every algorithm (excluding featureless) leads to nearly perfect classification results and thus to an AUC to 1 or almost 1. As expected a featureless model stays at a classification error of close to 0.5 since the most common class label will be predicted for every observation regardless of features and our classes are almost equally distributed (51.8% edible vs. 48.2% poisonous). The logistic regression (log_reg), random forest (ranger) and KNN (kknn) all have an AUC of 1.0000000. However, if you look at the False Positive Rate (FPR) of KNN it is not exactly zero and therefore the AUC cannot be exactly 1 and has been rounded. Even a, otherwise rather unstable, decision tree (rpart) leads to incredible results and a FPR of only 1.2%. Those results are however not surprising since there are many features which can separate the classes very well. Therefore there is no real need to tune hyperparameters or choose a complex model.         
+```{r}
+tab_learner_performance = bmr$aggregate(measures)
+tab_learner_performance[,learner_id:MMCE]
+```
 
 
+
+In the first plot you can see how the classification error is distributed among the different cv folds for the different algorithms and in the second plot the ROC curve is displayed.   
 ```{r}
 autoplot(bmr)
 autoplot(bmr, type = "roc")
 
-(tab_learner_performance = bmr$aggregate(measures))
-```
-
-Logistic regression and random forest clearly lead to the best results when ranking the different models by their AUC. 
-
-```{r}
-learner_performance_ranked <- tab_learner_performance[,
-                                                      .(learner_id,
-                                                        rank_train = rank(-AUC),
-                                                        rank_test = rank(MMCE))
-                                                      ] %>% 
-  arrange(rank_train) # sort in ascending order
-learner_performance_ranked
 
 ```
 
@@ -283,7 +277,14 @@ learner_performance_ranked
 
 
 ### Final model
-All steps so far answered the question which model with which hyperparameters yields good results with a now known generalization error. However to obtain the best possible model, training with all available data points is needed. We chose the random forest as final model for its interpretability and stability.  
+All steps so far answered the question which model with which hyperparameters yields good results with a now known generalization error. However to obtain the best possible predictions, training with all available data points is needed.
+Our previous models showed:      
+* Naive Bayes has a worse FPR than other models, which is relevant considering a mushroom which is falsely classified as edible might lead to poisoning or even death
+* Perfect classification results for random forest and logistic regression
+* Logistic regression has convergence issues
+* Almost perfect classification for KNN and decision tree
+
+Even though a single tree would be the most useful and applicable model when picking mushrooms in real life, we chose the random forest as final model since it can perfectly classify all observations and has no stability issues such as the logistic regression. 
 
 
 ```{r, results = 'hide'}
@@ -313,8 +314,7 @@ learner_final$param_set$values = tuner_ranger$tuning_result$params
 learner_final$train(task_mushrooms)
 
 ```
-
-With random forests we can asses the importance of each variable in the data. As suspected in the description part odor is clearly a good indicator for edibility of a mushroom.
+To prevent the random forest from remaining just a black box algorithm, the variable importance is shown in the plot below. As suspected in the descriptive part, odor is clearly a good indicator for edibility of a mushroom.
 ```{r}
 # construct filter to extract variable importance in previously set up winning learner
 filter_ranger = flt("importance", learner = learner_final)
@@ -340,3 +340,7 @@ ggplot(data = feature_scores,
 theme_set(original_ggplot_theme)
 ```
 
+
+### Conclusion
+
+The data set was almost too perfect and the observations were too well separable into the different classes. This made machine learning methods and especially hyperparameter tuning almost unnecessary. Nevertheless, it was very interesting to look at this uncommon case of "perfect" data and it showed that you should critically question every analysis and not just blindly follow the standard machine learning procedure.
