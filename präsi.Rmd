@@ -17,10 +17,10 @@ knitr::include_graphics("images/mushrooms1.jpg")
 ```
 
 
-Collecting mushrooms recently gained popularity (which you can see on Instagram and mushroom picking blogs). Since mushrooms come in many different colors and shapes, their fit or unfit for human consumption is not necessarily obvious. Naturally, instead of asking your grandparents for advice a statistical analysis is the way to go to find out whether a mushroom is edible or poisonous given attributes concerning the look or smell of a mushroom.
+Collecting mushrooms recently gained popularity (which you can see on Instagram and mushroom picking blogs). Since mushrooms come in many different colors and shapes, their edibility for humans is not necessarily obvious. Naturally, instead of asking your grandparents for advice, a statistical analysis is the way to go to find out whether a mushroom is edible or poisonous given certain attributes.
 
 ### Mushroom attributes
-Our main goal is to classify each mushroom into one of the two classes "edible" or "poisonous" by using machine learning methods. For this task we can use various attributes of a mushroom's cap, gill or stalk or attributes like the odor, population or habitat of the mushroom. The cap shape for example can be either "bell", "conical", "convex", "flat", "knobbed" or "sunken" (see figure below). The dataset contains 8124 observations with 22 nominal features.
+Our main goal is to classify each mushroom into one of the two classes "edible" or "poisonous" by using machine learning methods. For this task, we can use various mushroom attributes like cap, gill, stalk, odor, population or habitat. The cap shape, e.g.,  can be either "bell", "conical", "convex", "flat", "knobbed" or "sunken" (see table below). The dataset contains 8124 observations with 22 nominal features.
 
 ```{r, echo=FALSE,out.width="49%",fig.cap="source: https://www.mushroomdiary.co.uk/mushroom-identification/",fig.show='hold',fig.align='center'}
 
@@ -93,8 +93,7 @@ head(mushrooms_data)
 summary(mushrooms_data)
 ```
 
-In order to get a better feeling for our mushrooms let's do some plotting:   
-Odor seems to be quite good indicator whether a mushroom is poisonous or edible. For example, a purgant, spicy or fishy odor clearly identifies poisonous mushrooms.          
+In order to get a better feeling for our mushrooms, let us do some plotting. As can be seen in  the barplot below, odor seems to be quite a good indicator whether a mushroom is poisonous or edible. According to this simple descriptive visualization, pungent, spicy or fishy odors clearly identify poisonous mushrooms.
 ```{r, echo=FALSE}
 p1 <- ggplot(mushrooms, aes(x= odor, fill = class)) +
   geom_bar() +
@@ -113,11 +112,12 @@ grid.arrange(p1, p2, ncol =2)
 ```
 
 ### Mushroom Learning
-The machine learning analysis focuses in particular on two aspects: Fist comparing different machine learning methods such as KNN or Random Forests on this specific data set and second including hyper parameter tuning for some of the used methods.     
+Mchine learning analyses focus in particular on two aspects: First, on comparing performances of different machine learning methods such as k-nearest neighbors (KNN) or Random Forests on a specific data set and second, tuning hyper parameters for some of the used methods.
+
 #### Evaluation Framework
 
 mlr3 is a machine learning (our in our case mushroom learning) framework in R offering a common ground for all necessary steps as defining a task, training a learner, predicting new data and resampling.    
-A task in mlr3 contains the data as well as meta information such as the name of the target variable or if its a "classification" "regression" task.
+A task in mlr3 contains the data as well as meta information such as the name of the target variable and the task type - in our case "classification".
 ```{r}
 # Construct Classification Task 
 task_mushrooms = TaskClassif$new(id = "mushrooms_data",
@@ -127,7 +127,7 @@ task_mushrooms = TaskClassif$new(id = "mushrooms_data",
 ```
 
 
-Additionally to building a machine learning model for predicting the classes it is crucial to obtain a realistic generalization error for our estimates. Therefore we decided for a nested resampling strategy with a 5-fold CV in inner loop and a 10-fold CV in the outer loop. The number of folds was chosen in a way to balance the bias and variance of our estimate while still considering run time.   
+Additionally to building a machine learning model for predicting the classes, it is crucial to obtain a realistic generalization error (GE) for our estimates. Therefore, we decided to employ a nested resampling strategy with a 5-fold cross validation (CV) in the  inner loop and a 10-fold CV in the outer loop. The number of folds was chosen to balance the bias and variance of our estimate while still obtaining reasonable run time.
 
 ```{r}
 # Resampling Strategies 
@@ -137,8 +137,8 @@ resampling_inner_5CV = rsmp("cv", folds = 5L)
 resampling_outer_10CV = rsmp("cv", folds = 10L)
 ```
 
-While model tuning will be based on the AUC in order to classify most observations correctly, printing other measures is useful for assessing the performances of other aspects such as falsely predicting a poisonous mushroom as edible.   
-For the second aspect of the project, hyperparameter tuning, we chose grid search because the range of possible hyperparameter values is discrete and rather small. More precisely, the hyperparameter mtry for random forest (number of variables randomly sampled as candidates at each split)  may be between 1 and 21 and k in KNN (number of neighbors considered) may be between 1 and 50.    
+While model tuning will be based on the AUC in order to classify most observations correctly, printing other measures is useful for assessing the performances of other aspects such as falsely predicting an actually poisonous mushroom as edible.   
+For the second part of the project, hyperparameter tuning, we chose grid search because the range of possible hyperparameter values is discrete and rather small. More precisely, the random forest hyperparameter mtry (i.e., the number of variables randomly sampled as candidates at each split) is evaluated in the entire range of 1 to 21 and k in KNN (number of neighbors considered) is tested between 1 and 50.    
 
 ```{r}
 # Performance Measures 
@@ -170,11 +170,11 @@ terminator_mtry = term("evals", n_evals = 21)
 
 ```
 
-#### Choosing algorithms
-A relevant property of our dataset is that all features are nominal and thus multinomial distributed. Therefore linear and quadratic discriminant analyses (LDA and QDA) are due to the violated assumption of normally distributed features not possible.    
+#### Choosing Algorithms
+A relevant property of our dataset is that all features are nominal and thus multinomially distributed. Therefore, linear and quadratic discriminant analyses (LDA and QDA) are not possible due to the violated assumption of normally distributed features.
 Following the performance of featureless, naive bayes, KNN, logistic regression, decision tree and random forest models will be compared since they are all suitable for binary classification with nominal features.     
 
-In the following part we define our inner loop of nested resampling for tuning hyperparameters. Only random forest (mtry) and KNN (k) have hyperparameters which will be tuned in a 5-fold-cv.
+In the following part, we define our inner loop of the nested resampling process in order to tune the chosen hyperparameters. Only random forest (mtry) and KNN (k) have hyperparameters which will be tuned in a 5-fold-cv.
 
 ```{r}
 
