@@ -2,9 +2,7 @@
 title: "Introduction to Mushroom Learning"
 author: "Andreas Klaß, Cornelia Gruber, Felix Langer, Viktoria Szabo"
 date: "15.05.2020"
-output:
-  pdf_document: default
-  html_document: default
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -123,7 +121,7 @@ A task in mlr3 contains the data as well as meta information such as the name of
 task_mushrooms = TaskClassif$new(id = "mushrooms_data",
                                backend = mushrooms_data,
                                target = "class",
-                               positive = "edible") # "e" = edible
+                               positive = "edible") #
 ```
 
 
@@ -234,21 +232,17 @@ tuner_ranger = AutoTuner$new(
 
 #### Benchmark Results
 The final benchmark of all 6 methods, which is the outer loop of our nested resampling with a 10-fold-cv, is shown below. In this step the GE as well as other performance measures of the algorithms are compared.   
-```{r, results='hide'}
+```{r}
 design = benchmark_grid(
   tasks = task_mushrooms,
   learners = learners,
   resamplings = resampling_outer_10CV
 )
-
-
-
 # lower the logger threshold to suppress warnings and info messages:
-lgr::get_logger("mlr3")$set_threshold("error")
+lgr::get_logger("mlr3")$set_threshold("warn")
 bmr = benchmark(design, store_models = TRUE)
+# reset console messages to default
 lgr::get_logger("mlr3")$set_threshold("info")
-
-head(warnings())
 ```
 When nominal features are included in a logistic regression each category is binary encoded. However, if in one category every single observation points to the same target variable class (edible or poisonous), the model does not converge. In this case the separation leads to the non-existence of - or rather infintely high - maximum likelihood estimates, since the probability for an observation to belong to a specific class is exactly 1. As this is what happens for some categories such as "spicy odor" the model fit is not quite stable and interpreting the coefficients might be misleading.
 
@@ -294,9 +288,8 @@ Even though a single tree would be the most useful and applicable model when pic
 ```{r, results = 'hide'}
 # Train tuner_ranger once again using the same specs as before
 tuner_ranger$tuning_instance
-
 # show only warnings:
-lgr::get_logger("mlr3")$set_threshold("error")
+lgr::get_logger("mlr3")$set_threshold("warn")
 tuner_ranger$train(task_mushrooms)
 # reset console outputs to default:
 lgr::get_logger("mlr3")$set_threshold("info")
