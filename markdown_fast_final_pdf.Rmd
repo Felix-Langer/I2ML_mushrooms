@@ -8,60 +8,13 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-
-```{r, echo=FALSE,fig.align = 'center',out.width="100%",fig.cap="source: https://blog.goodeggs.com/blog/cooking-different-types-of-mushrooms"}
-knitr::include_graphics("images/mushrooms1.jpg")
-```
-
-
-Collecting mushrooms recently gained popularity (which you can see on Instagram and mushroom picking blogs). Since mushrooms come in many different colors and shapes, their edibility for humans is not necessarily obvious. Naturally, instead of asking your grandparents for advice, a statistical analysis is the way to go to find out whether a mushroom is edible or poisonous given certain attributes.
-
-### Mushroom attributes
-Our main goal is to classify each mushroom into one of the two classes "edible" or "poisonous" by using machine learning methods. For this task, we can use various mushroom attributes like cap, gill, stalk, odor, population or habitat. The cap shape, e.g.,  can be either "bell", "conical", "convex", "flat", "knobbed" or "sunken" (see table below). The dataset contains 8124 observations with 22 nominal features.
-
-```{r, echo=FALSE,out.width="49%",fig.cap="source: https://www.mushroomdiary.co.uk/mushroom-identification/",fig.show='hold',fig.align='center'}
-
-knitr::include_graphics(c("images/parts.jpg","images/cap_shape.jpg"))
-
-```
-
-### Dataset Overview
-Variable | Encoding
----------|---------
-classes| edible=e,  poisonous=p
-cap-shape| bell=b, conical=c, convex=x, flat=f,  knobbed=k, sunken=s  
-cap-surface| fibrous=f, grooves=g, scaly=y, smooth=s  
-cap-color| brown=n, buff=b, cinnamon=c, gray=g, green=r, pink=p, purple=u, red=e, white=w, yellow=y  
-bruises| bruises=t, no=f  
-odor| almond=a, anise=l, creosote=c, fishy=y, foul=f, musty=m, none=n, pungent=p, spicy=s  
-gill-attachment| attached=a, descending=d, free=f, notched=n  
-gill-spacing| close=c, crowded=w, distant=d  
-gill-size| broad=b, narrow=n  
-gill-color| black=k, brown=n, buff=b, chocolate=h, gray=g, green=r, orange=o, pink=p, purple=u, red=e, white=w, yellow=y  
-stalk-shape| enlarging=e, tapering=t  
-stalk-root| bulbous=b, club=c, cup=u, equal=e, rhizomorphs=z, rooted=r, missing=?  
-stalk-surface-above-ring| fibrous=f, scaly=y, silky=k, smooth=s  
-stalk-surface-below-ring| fibrous=f, scaly=y, silky=k, smooth=s  
-stalk-color-above-ring| brown=n, buff=b, cinnamon=c, gray=g, orange=o, pink=p, red=e, white=w, yellow=y  
-stalk-color-below-ring| brown=n, buff=b, cinnamon=c, gray=g, orange=o, pink=p, red=e, white=w, yellow=y  
-veil-type| partial=p, universal=u  
-veil-color| brown=n, orange=o, white=w, yellow=y  
-ring-number| none=n, one=o, two=t  
-ring-type| cobwebby=c, evanescent=e, flaring=f, large=l, none=n, pendant=p, sheathing=s, zone=z  
-spore-print-color| black=k, brown=n, buff=b, chocolate=h, green=r, orange=o, purple=u, white=w, yellow=y  
-population| abundant=a, clustered=c, numerous=n, scattered=s, several=v, solitary=y  
-habitat| grasses=g, leaves=l, meadows=m, paths=p, urban=u, waste=w, woods=d   
-
-
-
 ```{r,echo=FALSE, message=FALSE, warning=FALSE}
 # load packages and data
 library(tidyverse)
 library(mlr3verse)
 library(ranger) #random forests
 library(gridExtra) #plotting 
-library(precrec)
+library(kableExtra) # markdown table styling
 set.seed(123456)
 
 # capture current ggplot theme and reset it at the end of the script:
@@ -83,10 +36,70 @@ mushrooms_data$gill.color <- factor(mushrooms_data$gill.color,
                                                "pink", "green", "purple", "white", "yellow"))
 ```
 
+```{r, echo=FALSE,fig.align = 'center',out.width="100%",fig.cap="source: https://blog.goodeggs.com/blog/cooking-different-types-of-mushrooms"}
+knitr::include_graphics("images/mushrooms1.jpg")
+```
+
+
+Collecting mushrooms recently gained popularity (which you can see on Instagram and mushroom picking blogs). Since mushrooms come in many different colors and shapes, their edibility for humans is not necessarily obvious. Naturally, instead of asking your grandparents for advice, a statistical analysis is the way to go to find out whether a mushroom is edible or poisonous given certain attributes.
+
+### Mushroom attributes
+Our main goal is to classify each mushroom into one of the two classes "edible" or "poisonous" by using machine learning methods. For this task, we can use various mushroom attributes like cap, gill, stalk, odor, population or habitat. The cap shape, e.g.,  can be either "bell", "conical", "convex", "flat", "knobbed" or "sunken" (see table below). The dataset contains 8124 observations with 22 nominal features.
+
+```{r, echo=FALSE,out.width="49%",fig.cap="source: https://www.mushroomdiary.co.uk/mushroom-identification/",fig.show='hold',fig.align='center'}
+
+knitr::include_graphics(c("images/parts.jpg","images/cap_shape.jpg"))
+
+```
+
+### Dataset Overview
+```{r table2, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+library(dplyr)
+library(kableExtra)
+feature_names <- c("class", "cap-shape", "cap-surface", "cap-color",
+                   "bruises", "odor", "gill-attachment", "gill-spacing", 
+                   "gill-size", "gill-color", "stalk-shape",
+                   "stalk-root", "stalk-surface-above-ring", 
+                   "stalk-surface-below-ring", "stalk-color-above-ring",
+                   "stalk-color-below-ring", "veil-type", "veil-color",
+                   "ring-number", "ring-type", "spore-print-color",
+                   "population", "habitat")
+
+encoding_features <- c("edible=e, poisonous=p",
+                       "bell=b,conical=c,convex=x,flat=f, knobbed=k,sunken=s",
+                       "fibrous=f,grooves=g,scaly=y,smooth=s",
+                       "brown=n,buff=b,cinnamon=c,gray=g,green=r,pink=p,purple=u,red=e
+                       ,white=w,yellow=y",
+                       "bruises=t,no=f",
+                       "almond=a,anise=l,creosote=c,fishy=y,foul=f,musty=m,none=n
+                       ,pungent=p,spicy=s",
+                       "attached=a,descending=d,free=f,notched=n",
+                       "close=c,crowded=w,distant=d",
+                       "broad=b,narrow=n",
+                       "black=k,brown=n,buff=b,chocolate=h,gray=g, green=r,orange=o,pink=p, purple=u,red=e,white=w,yellow=y",
+                       "enlarging=e,tapering=t",
+                       "bulbous=b,club=c,cup=u,equal=e,rhizomorphs=z,rooted=r,missing=?",
+                       "fibrous=f,scaly=y,silky=k,smooth=s",
+                       "fibrous=f,scaly=y,silky=k,smooth=s",
+                       "brown=n,buff=b,cinnamon=c,gray=g,orange=o,pink=p,red=e,white=w,yellow=y","brown=n,buff=b,cinnamon=c,gray=g,orange=o,pink=p,red=e,white=w,yellow=y",
+                       "partial=p,universal=u",
+                       "brown=n,orange=o,white=w,yellow=y",
+                       "none=n,one=o,two=t",
+                       "cobwebby=c,evanescent=e,flaring=f,large=l,none=n,pendant=p,\n sheathing=s,zone=z",
+                       "black=k,brown=n,buff=b,chocolate=h,green=r,orange=o,purple=u,white=w,yellow=y",
+                       "abundant=a,clustered=c,numerous=n,scattered=s,several=v,solitary=y",
+                       "grasses=g,leaves=l,meadows=m,paths=p,urban=u,waste=w,woods=d"
+                       )
+feature_description <- data.frame(Features = feature_names, Encoding = encoding_features)
+knitr::kable(
+  feature_description, booktabs = TRUE
+) %>%  kable_styling(latex_options="scale_down") # fit to page width
+
+```
 
 ```{r}
 #Overview of data
-head(mushrooms_data)
+tibble::glimpse(mushrooms_data)
 
 summary(mushrooms_data)
 ```
